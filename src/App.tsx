@@ -14,15 +14,75 @@ interface Fortune {
   luckRate: string;
 }
 
+const FALLBACK_FORTUNES: Record<CortisolLevel, Fortune[]> = {
+  low: [
+    {
+      level: 'low',
+      title: "Zen Master Mode",
+      meaning: "You feel light, airy, and completely at peace. Your mind is like a still lake, reflecting only what you choose.",
+      why: "You've likely been prioritizing deep recovery, quality sleep, or you've successfully detached from a major stressor recently.",
+      tips: ["Savor this moment of peak recovery", "Maintain your current sleep hygiene", "Practice a hobby that brings you pure joy"],
+      luckRate: "10% - Ultra Rare Luck!"
+    },
+    {
+      level: 'low',
+      title: "The Eye of the Storm",
+      meaning: "You feel grounded and unshakable. While others are rushing, you move with intentionality and grace.",
+      why: "Your nervous system is exceptionally well-regulated. You've mastered the art of 'selective caring'.",
+      tips: ["Use this clarity to set new goals", "Start a creative project", "Share your calm energy with a friend"],
+      luckRate: "10% - Super Rare Luck!"
+    }
+  ],
+  normal: [
+    {
+      level: 'normal',
+      title: "Balanced Rhythm",
+      meaning: "You feel capable and alert. You have enough energy for your day without feeling jittery or overwhelmed.",
+      why: "You have a healthy circadian rhythm. You're facing life's challenges with a steady hand.",
+      tips: ["Take a 10-minute walk in sunlight", "Stay consistently hydrated", "Keep your wake-up time consistent"],
+      luckRate: "60% - Steady & Strong"
+    },
+    {
+      level: 'normal',
+      title: "The Productive Flow",
+      meaning: "You feel focused and 'in the zone'. Your body is providing just enough drive to get things done.",
+      why: "You've found a great balance between engagement and relaxation today.",
+      tips: ["Don't forget to stretch every hour", "Eat a protein-rich snack", "Take a 5-minute screen break"],
+      luckRate: "60% - Optimal State"
+    }
+  ],
+  high: [
+    {
+      level: 'high',
+      title: "Overdrive Alert",
+      meaning: "You feel 'wired but tired'. Your thoughts are racing, and you might feel a slight tightness in your chest.",
+      why: "High caffeine, looming deadlines, or a lingering worry is keeping your system on high alert.",
+      tips: ["Try box breathing (4s in, 4s hold, 4s out, 4s hold)", "Limit caffeine for the next 4 hours", "Listen to 432Hz calming music"],
+      luckRate: "30% - High Intensity"
+    },
+    {
+      level: 'high',
+      title: "The Pressure Cooker",
+      meaning: "You feel overwhelmed and reactive. Small tasks might feel like mountains right now.",
+      why: "Accumulated micro-stressors from the week are peaking. Your body is asking for a hard reset.",
+      tips: ["Go for a slow walk in nature", "Journal your worries to clear your mind", "Try a warm magnesium bath"],
+      luckRate: "30% - Warning Zone"
+    }
+  ]
+};
+
 export default function App() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [result, setResult] = useState<Fortune | null>(null);
   const [rotation, setRotation] = useState(-90); // Start at "Low" left side
   const [error, setError] = useState<string | null>(null);
 
-  const generateFortune = async (level: CortisolLevel): Promise<Fortune | null> => {
+  const generateFortune = async (level: CortisolLevel): Promise<Fortune> => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error("API Key missing");
+
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Generate a unique, creative, and scientifically-inspired cortisol level fortune for a '${level}' cortisol level. The fortune should be exactly for this person based on how they feel.`,
@@ -53,8 +113,13 @@ export default function App() {
         level
       };
     } catch (err) {
-      console.error("Failed to generate fortune:", err);
-      return null;
+      console.error("AI generation failed, using fallback:", err);
+      // Fallback to static fortunes if AI fails
+      const fallbacks = FALLBACK_FORTUNES[level];
+      return {
+        ...fallbacks[Math.floor(Math.random() * fallbacks.length)],
+        level
+      };
     }
   };
 
@@ -85,18 +150,13 @@ export default function App() {
     const extraSpins = 360 * 3;
     setRotation(rotation + extraSpins + targetRotation - (rotation % 360));
 
-    // Generate unique fortune via AI
+    // Generate unique fortune via AI (with fallback)
     const fortune = await generateFortune(level);
 
-    if (fortune) {
-      setTimeout(() => {
-        setResult(fortune);
-        setIsSpinning(false);
-      }, 2000);
-    } else {
-      setError("The oracle is resting. Please try again.");
+    setTimeout(() => {
+      setResult(fortune);
       setIsSpinning(false);
-    }
+    }, 2000);
   };
 
   return (
